@@ -1,6 +1,6 @@
 import express from "express";
 import axios from "axios";
-import cheerio from "cheerio";
+const cheerio = require("cheerio");
 import cors from "cors";
 import { generateOutfit } from "./gemini.js";
 
