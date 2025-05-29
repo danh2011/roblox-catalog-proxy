@@ -1,57 +1,41 @@
-const express = require("express");
-const axios = require("axios");
-const cheerio = require("cheerio");
-require("dotenv").config();
-import { generateOutfit } from "./gemini.js";
+import express from "express";
+import axios from "axios";
+import * as cheerio from "cheerio";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-app.use(cors());
 
-// 1) Catalog scraping endpoint
-app.get("/catalog", async (req, res) => {
-  const keyword = req.query.keyword;
-  if (!keyword) return res.status(400).json({ error: "Missing keyword" });
+app.get("/search", async (req, res) => {
+  const query = req.query.q;
+  if (!query) return res.status(400).send("Missing search query");
 
-  const url = `https://www.roblox.com/catalog?Keyword=${encodeURIComponent(keyword)}&Category=3&Subcategory=3&salesTypeFilter=1`;
   try {
-    const { data: html } = await axios.get(url);
-    const $ = cheerio.load(html);
+    const url = `https://www.roblox.com/catalog?Keyword=${encodeURIComponent(query)}&Category=3&Subcategory=3&salesTypeFilter=1`;
+    const response = await axios.get(url);
+    const $ = cheerio.load(response.data);
+    
     const items = [];
+    $(".item-card").each((i, el) => {
+      const name = $(el).find(".text-name").text().trim();
+      const price = $(el).find(".text-robux").text().trim();
+      const image = $(el).find("img").attr("src");
+      const link = "https://www.roblox.com" + $(el).find("a").attr("href");
 
-    $(".item-card").each((_, el) => {
-      const name      = $(el).find(".item-card-name").text().trim();
-      const id        = $(el).attr("data-item-id");
-      const thumbnail = $(el).find("img").attr("src");
-      if (id && name && thumbnail) {
-        items.push({ name, assetId: parseInt(id), thumbnailUrl: thumbnail });
+      if (name) {
+        items.push({ name, price, image, link });
       }
     });
 
-    return res.json({ data: items });
+    res.json(items);
   } catch (err) {
-    console.error("Catalog scrape error:", err.message);
-    return res.status(502).json({ error: "Failed to scrape catalog" });
+    console.error("Error fetching catalog:", err.message);
+    res.status(500).send("Error fetching data");
   }
 });
-
-// 2) Outfit generation endpoint (Gemini AI)
-app.get("/outfit", async (req, res) => {
-  const prompt = req.query.prompt;
-  if (!prompt) return res.status(400).json({ error: "Missing prompt" });
-
-  try {
-    const outfit = await generateOutfit(prompt);
-    return res.json({ outfit });
-  } catch (err) {
-    console.error("Gemini error:", err.message);
-    return res.status(502).json({ error: "Failed to generate outfit" });
-  }
-});
-
-// Root
-app.get("/", (_, res) => res.send("Roblox Catalog Proxy + AI is running."));
 
 app.listen(PORT, () => {
-  console.log(`🚀 Proxy server listening on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
