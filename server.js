@@ -1,7 +1,7 @@
-import express from "express";
-import axios from "axios";
+const express = require("express");
+const axios = require("axios");
 const cheerio = require("cheerio");
-import cors from "cors";
+require("dotenv").config();
 import { generateOutfit } from "./gemini.js";
 
 const app = express();
